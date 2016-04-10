@@ -58,6 +58,7 @@ setDT(days.avg, keep.rownames = TRUE) #formate dataframe
 colnames(days.avg) <- c("Agency", "Average.Days") #rename columnes
 days.avg <- arrange(days.avg, desc(Average.Days)) #change order to descending
 days.avg1 <- merge(count, days.avg, by="Agency") #merge days.avg and count to see how many openings per agency with average days since last update
+days.avg1 <- arrange(days.avg1, desc(Average.Days)) #change order to descending
 head(days.avg1, 5) #print agency with longest average days since last update
 
 masterssubset <- nyc[grep("master", nyc$Minimum.Qual.Requirements, ignore.case = TRUE), ] #subset entries that require a master's
