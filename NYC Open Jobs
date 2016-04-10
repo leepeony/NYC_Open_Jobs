@@ -1,1 +1,237 @@
+library(plyr)
+library(data.table)
+library(rattle)
+nyc <- read.csv("nyc_jobs.csv")
+
+
+# 1.Who has the most openings? 
+# = DEPT OF HEALTH/MENTAL HYGIENE
+count <- count(nyc, "Agency") #count openings, organize by agency
+count <- arrange(count, desc(freq)) #change order to descending
+head(count, 1) #print agency with most openings
+
+# 2.Which departments have the highest and the 
+# lowest paying positions (based on current job openings)? 
+# = highest on avg: BOARD OF CORRECTION, 
+# = lowest on avg: OFFICE OF COLLECTIVE BARGAINING
+nyc["avg"] <- rowMeans(nyc[,c("Salary.Range.From", "Salary.Range.To")], na.rm=TRUE) #create mean from salary range
+nyc["annualsalary"] <- NA #create column for annual salary
+nyc<- nyc[, c(1:10, 27, 28, 11:26)] #reorder columns
+
+for(i in 1:dim(nyc)[1]) { 
+  if(nyc[i,13] == "Annual") { 
+    nyc[i,12] <- nyc[i,11]
+  } else if (nyc[i,13] == "Hourly") {
+    nyc[i,12] <- (nyc[i,11]*40*52)
+  } else if (nyc[i,13] == "Daily") {
+    nyc[i,12] <- (nyc[i,11]*5*52)
+  } else {       
+    nyc[i,12] <- "NA"    
+  } 
+}  #calculate hourly and daily salaries to annual
+
+nyc$annualsalary <- as.numeric(nyc$annualsalary) #change column to numeric
+
+count.avg <- as.data.frame(tapply(nyc$annualsalary, nyc$Agency, mean)) #calculate mean of salary per agency
+setDT(count.avg, keep.rownames = TRUE) #format dataframe
+colnames(count.avg) <- c("Agency", "Average.Annual")  #rename columns
+count.avg <- arrange(count.avg, desc(Average.Annual)) #change order to descending
+head(count.avg, 1) #print agency with highest salary on average
+tail(count.avg, 1) #print agency with lowest salary on average
+
+# 3. Which jobs do you think are the hardest to fill? (What makes you say that?)
+# = Top 3 (excluding outliers) = NYC Housing Authority, Dept of Environment Protection, Law Department
+
+nyc["today"] <- format(Sys.Date(),"%m/%d/%Y") #create column for today's dat
+nyc<- nyc[, c(1:25, 29, 26:28)] #reorder columns
+nyc$Posting.Date = as.character(nyc$Posting.Date) #change class of column
+nyc$Posting.Updated = as.character(nyc$Posting.Updated) #change class of column
+nyc$Posting.Date = substr(nyc$Posting.Date, 1, nchar(nyc$Posting.Date)-9) #remove timestamp
+nyc$Posting.Updated = substr(nyc$Posting.Updated, 1, nchar(nyc$Posting.Updated)-9) #remove timestamp
+
+nyc$dayssincepost <- as.Date(as.character(nyc$today), format="%m/%d/%Y")-
+  as.Date(as.character(nyc$Posting.Updated), format="%m/%d/%Y") #calculate days since post last updated
+nyc$dayssincepost <- as.numeric(nyc$dayssincepost) #change class of column
+
+days.avg <- as.data.frame(tapply(nyc$dayssincepost, nyc$Agency, mean)) #calculate average days since last update per agency
+setDT(days.avg, keep.rownames = TRUE) #formate dataframe
+colnames(days.avg) <- c("Agency", "Average.Days") #rename columnes
+days.avg <- arrange(days.avg, desc(Average.Days)) #change order to descending
+days.avg1 <- merge(count, days.avg, by="Agency") #merge days.avg and count to see how many openings per agency with average days since last update
+head(days.avg1, 5) #print agency with longest average days since last update
+
+masterssubset <- nyc[grep("master", nyc$Minimum.Qual.Requirements, ignore.case = TRUE), ] #subset entries that require a master's
+summary(masterssubset$dayssincepost) #quick visual analysis to see if there is different days since post last updated
+summary(nyc$dayssincepost) #shows little variance save for few outliers
+
+rattle() #used Rattle GUI to run linear regression and anova, shows that Agency has the highest significance in days since last updated
+#more analysis can be done by parsing qualification requirements but quick analysis to see if a job that required a master's yielded nothing conclusive
+#other possible things to investigate are level and number of positions (labeled as significant by anova), or possibly job description and location, 
+
+#below is code from Rattle log
+
+#############################################################
+crv$seed <- 42 
+
+#============================================================
+# Rattle timestamp: 2016-04-10 00:05:51 x86_64-apple-darwin13.4.0 
+
+# Load the data.
+
+crs$dataset <- read.csv("file:///Users/leepeony/Desktop/NYC_Jobs.csv", na.strings=c(".", "NA", "", "?"), strip.white=TRUE, encoding="UTF-8")
+
+#============================================================
+# Rattle timestamp: 2016-04-10 00:05:55 x86_64-apple-darwin13.4.0 
+
+# Note the user selections. 
+
+# Build the training/validate/test datasets.
+
+set.seed(crv$seed) 
+crs$nobs <- nrow(crs$dataset) # 4089 observations 
+crs$sample <- crs$train <- sample(nrow(crs$dataset), 0.7*crs$nobs) # 2862 observations
+crs$validate <- sample(setdiff(seq_len(nrow(crs$dataset)), crs$train), 0.15*crs$nobs) # 613 observations
+crs$test <- setdiff(setdiff(seq_len(nrow(crs$dataset)), crs$train), crs$validate) # 614 observations
+
+# The following variable selections have been noted.
+
+crs$input <- c("Job.ID", "Agency", "X..Of.Positions", "Business.Title",
+     "Civil.Service.Title", "Title.Code.No", "Level", "Salary.Range.From",
+     "Salary.Range.To", "Salary.Frequency", "Work.Location", "Division.Work.Unit",
+     "Job.Description", "Minimum.Qual.Requirements", "Preferred.Skills", "Additional.Information",
+     "To.Apply", "Hours.Shift", "Work.Location.1", "Residency.Requirement",
+     "Posting.Date", "Post.Until", "Posting.Updated")
+
+crs$numeric <- c("Job.ID", "X..Of.Positions", "Salary.Range.From", "Salary.Range.To")
+
+crs$categoric <- c("Agency", "Business.Title", "Civil.Service.Title", "Title.Code.No",
+     "Level", "Salary.Frequency", "Work.Location", "Division.Work.Unit",
+     "Job.Description", "Minimum.Qual.Requirements", "Preferred.Skills", "Additional.Information",
+     "To.Apply", "Hours.Shift", "Work.Location.1", "Residency.Requirement",
+     "Posting.Date", "Post.Until", "Posting.Updated")
+
+crs$target  <- "Posting.Type"
+crs$risk    <- NULL
+crs$ident   <- NULL
+crs$ignore  <- c("Recruitment.Contact", "Process.Date")
+crs$weights <- NULL
+
+#============================================================
+# Rattle timestamp: 2016-04-10 00:07:31 x86_64-apple-darwin13.4.0 
+
+# Load the data.
+
+crs$dataset <- read.csv("file:///Users/leepeony/Desktop/nyc.csv", na.strings=c(".", "NA", "", "?"), strip.white=TRUE, encoding="UTF-8")
+
+#============================================================
+# Rattle timestamp: 2016-04-10 00:07:35 x86_64-apple-darwin13.4.0 
+
+# Note the user selections. 
+
+# Build the training/validate/test datasets.
+
+set.seed(crv$seed) 
+crs$nobs <- nrow(crs$dataset) # 4089 observations 
+crs$sample <- crs$train <- sample(nrow(crs$dataset), 0.7*crs$nobs) # 2862 observations
+crs$validate <- sample(setdiff(seq_len(nrow(crs$dataset)), crs$train), 0.15*crs$nobs) # 613 observations
+crs$test <- setdiff(setdiff(seq_len(nrow(crs$dataset)), crs$train), crs$validate) # 614 observations
+
+# The following variable selections have been noted.
+
+crs$input <- c("Job.ID", "Agency", "X..Of.Positions", "Business.Title",
+     "Civil.Service.Title", "Title.Code.No", "Level", "Salary.Range.From",
+     "Salary.Range.To", "avg", "annualsalary", "Salary.Frequency",
+     "Work.Location", "Division.Work.Unit", "Job.Description", "Minimum.Qual.Requirements",
+     "Preferred.Skills", "Additional.Information", "To.Apply", "Hours.Shift",
+     "Work.Location.1", "Residency.Requirement", "Posting.Date", "Post.Until",
+     "Posting.Updated", "dayssincepost")
+
+crs$numeric <- c("Job.ID", "X..Of.Positions", "Salary.Range.From", "Salary.Range.To",
+     "avg", "annualsalary", "dayssincepost")
+
+crs$categoric <- c("Agency", "Business.Title", "Civil.Service.Title", "Title.Code.No",
+     "Level", "Salary.Frequency", "Work.Location", "Division.Work.Unit",
+     "Job.Description", "Minimum.Qual.Requirements", "Preferred.Skills", "Additional.Information",
+     "To.Apply", "Hours.Shift", "Work.Location.1", "Residency.Requirement",
+     "Posting.Date", "Post.Until", "Posting.Updated")
+
+crs$target  <- "Posting.Type"
+crs$risk    <- NULL
+crs$ident   <- "X"
+crs$ignore  <- c("Recruitment.Contact", "today", "Process.Date")
+crs$weights <- NULL
+
+#============================================================
+# Rattle timestamp: 2016-04-10 00:09:24 x86_64-apple-darwin13.4.0 
+
+# Note the user selections. 
+
+# Build the training/validate/test datasets.
+
+set.seed(crv$seed) 
+crs$nobs <- nrow(crs$dataset) # 4089 observations 
+crs$sample <- crs$train <- sample(nrow(crs$dataset), 0.7*crs$nobs) # 2862 observations
+crs$validate <- sample(setdiff(seq_len(nrow(crs$dataset)), crs$train), 0.15*crs$nobs) # 613 observations
+crs$test <- setdiff(setdiff(seq_len(nrow(crs$dataset)), crs$train), crs$validate) # 614 observations
+
+# The following variable selections have been noted.
+
+crs$input <- c("Agency", "Posting.Type", "X..Of.Positions", "Level",
+     "annualsalary", "Salary.Frequency")
+
+crs$numeric <- c("X..Of.Positions", "annualsalary")
+
+crs$categoric <- c("Agency", "Posting.Type", "Level", "Salary.Frequency")
+
+crs$target  <- "dayssincepost"
+crs$risk    <- NULL
+crs$ident   <- "X"
+crs$ignore  <- c("Job.ID", "Business.Title", "Civil.Service.Title", "Title.Code.No", "Salary.Range.From", "Salary.Range.To", "avg", "Work.Location", "Division.Work.Unit", "Job.Description", "Minimum.Qual.Requirements", "Preferred.Skills", "Additional.Information", "To.Apply", "Hours.Shift", "Work.Location.1", "Recruitment.Contact", "Residency.Requirement", "Posting.Date", "today", "Post.Until", "Posting.Updated", "Process.Date")
+crs$weights <- NULL
+
+#============================================================
+# Rattle timestamp: 2016-04-10 00:09:39 x86_64-apple-darwin13.4.0 
+
+# Regression model 
+
+# Build a Regression model.
+
+crs$glm <- lm(dayssincepost ~ ., data=crs$dataset[crs$train,c(crs$input, crs$target)])
+
+# Generate a textual view of the Linear model.
+
+print(summary(crs$glm))
+cat('==== ANOVA ====
+
+')
+print(anova(crs$glm))
+print("
+")
+
+# Time taken: 0.10 secs
+
+#============================================================
+# Rattle timestamp: 2016-04-10 00:15:19 x86_64-apple-darwin13.4.0 
+
+# Evaluate model performance. 
+
+# Risk Chart: requires the ggplot2 package.
+
+library(ggplot2)
+
+# Generate a risk chart.
+
+# Rattle provides evaluateRisk() and riskchart().
+
+crs$pr <- predict(crs$glm, type="response", newdata=crs$dataset[crs$validate, c(crs$input, crs$target)])
+crs$eval <- evaluateRisk(crs$pr, crs$dataset[crs$validate, c(crs$input, crs$target)]$dayssincepost)
+print(riskchart(crs$pr, 
+                crs$dataset[crs$validate, c(crs$input, crs$target)]$dayssincepost, 
+                title="Performance Chart Linear nyc.csv [validate] ", show.lift=FALSE, show.precision=FALSE, legend.horiz=FALSE))
+
+#############################################################
+
+
+
+
 
