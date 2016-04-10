@@ -66,7 +66,7 @@ summary(nyc$dayssincepost) #shows little variance save for few outliers
 
 rattle() #used Rattle GUI to run linear regression and anova, shows that Agency has the highest significance in days since last updated
 #more analysis can be done by parsing qualification requirements but quick analysis to see if a job that required a master's yielded nothing conclusive
-#other possible things to investigate are level and number of positions (labeled as significant by anova), or possibly job description and location, 
+#other possible things to investigate are level and number of positions (labeled as significant by anova), or possibly job description, location, or title
 
 #below is code from Rattle log
 
