@@ -1,0 +1,283 @@
+setwd("~/Desktop")#
+bot<- read.csv("testoutput.csv")#
+bot.visit<- tail(bot$visitid, -43)
+bot.visit2<- tail(bot$visitid.1, -43)
+bot$visitid <-NULL
+length(unique(bot$referrer))
+unique(bot$referrer)
+hist(bot$timeonsite, xlim = c(1, 3000))
+isrobot <- bot[which(bot$isRobot == 0),]
+train <- bot[sample(1: nrow(bot), 1000, replace = FALSE),]#
+testfit <- glm(bot$isRobot ~ bot$edge.latitude, family = binomial())#
+identical(na.omit(bot$visitid1), na.omit(bot$visitid))
+all.equal(bot.visit, bot.visit2)
+identical(bot.visit, bot.visit2) #why?
+bot2<- bot[, colSums(is.na(bot)) != nrow(bot)] #list of cols w/o na's
+bot3<- bot2[!duplicated(lapply(bot2,summary))] #list of cols w/o na's, w/o reps
+bot4<- bot[duplicated(lapply(bot,summary))] # cols that were deleted
+rm(bot2, bot4)
+write.csv(bot3, "~/Desktop/mydata.csv")
+countries<- cbind.data.frame(bot3$country, bot3$country.name, bot3$edge.country, bot3$edge.two.letter.country)
+timeperpage <- as.numeric(bot3$timeonsite/bot3$pagesviewed)#
+bot3[,185]<- timeperpage#
+bot3<- bot3[, c(1:10, 185, 11:184)]#
+bot3$X<-NULL
+bot3$visitid<-NULL
+colnames(bot3)[9] <- "timeperpage"
+
+
+visittimezero <- bot3[(bot3$timeperpage < 6), ]
+jitter(plot(bot3$pagesviewed, jitter(bot3$timeperpage, 1), ylim=c(0,10), xlim = c(0, 10)))
+
+visittimezero <- visittimezero[-c(1:42),]
+visittimezero <- visittimezero[!is.na(visittimezero$timeperpage),]
+
+ttt <- na.omit(visittimezero$timeperpage)
+fit <- kmeans(ttt, 2, nstart = 1)
+blacklist <- read.table("full_blacklist_database.txt")
+blacklist2 <- read.csv("ipaddresses.csv")
+server <- read.csv("server1.csv")
+View(blacklist)
+library(sqldf)
+colnames(bot3)[colnames(bot3)=="browserversion"] <- "browserversion1"
+colnames(bot3)[colnames(bot3)=="ip"] <- "ip1"
+colnames(bot3)[colnames(bot3)=="domain.name"] <- "domain_name"
+#Error in sqliteSendQuery(con, statement, bind.data) : 
+#  error in statement: duplicate column name: browserVersion
+server$X <- NULL
+end_ip_black <- sqldf("select end_ip from bot3 where end_ip in blacklist")
+fit <- kmean(visittimezero[, "timeperpage"], 3)
+
+boxplot(bot3$timeperpage, ylim= c(0, 20))
+visittimezero1 <- bot3[(bot3$timeperpage < 11), ]
+visittimezero1 <- visittimezero1[-c(1:42),]
+visittimezero1 <- visittimezero1[!is.na(visittimezero1$timeperpage),]
+visittimezero1 <- visittimezero1[ , c("timeperpage","pagesviewed")]
+plot(visittimezero1[c("timeperpage", "pagesviewed")], col= fit$cluster)
+
+suspiciousip<- visittimezero[which(visittimezero$end_ip == "1.4.221.237"),]
+
+start_ip_black <- sqldf("select * from bot3 where start_ip in blacklist")
+dotted_ip_black <- sqldf("select * from bot3 where dottedip in blacklist")
+end_ip_black <- sqldf("select * from bot3 where end_ip in blacklist")
+domain_ip_black <- sqldf("select * from bot3 where end_ip in blacklist")
+colnames(bot3)[colnames(bot3)=="domain-name"] <- "domain_name"
+server$X<-NULL
+server_ip_black <- sqldf("select * from bot3 where domain_name in server")
+end_ip_black[,185] <- as.numeric(end_ip_black$timeonsite/end_ip_black$pagesviewed)
+end_ip_black<- end_ip_black[,c(1:9, 185, 10:184)]
+colnames(end_ip_black)[10] <- "timeperpage"
+lapply(bot3, class)
+
+#did not try this
+subset <- function(bot3, colclasses="numeric") {
+  bot3[,sapply(bot3, function(vec, test) class(vec) %in% test, test=colclasses)]
+}
+
+str(subset_colclasses(bot3, c("factor", "integer")))
+#
+df2<-bot3[,!sapply(bot3,is.factor)]
+
+test <- sqldf("SELECT * FROM bot3 WHERE UserAgentName in (select ABAC from useragent)") 
+testfit <- glm(is_blacklist ~ ip + browser + referrer + device + speed, data = bot4, family = binomial())
+write.csv(coef(summary(testfit))[,2], "~/Desktop/coeftestfit.csv")
+
+testdata <- bot4[(4001:5000),]
+testdata <- testdata[,-2]
+
+testfit <- glm(is_blacklist ~ referrer + browser + 
+                 devicetype + speed + ConstName + dottedIP + 
+                 country.name + domain.name + edge.conn.speed + 
+                 edge.latitude + edge.longitude + time_ms + 
+                 primary.lang, data = bot4, family = binomial())
+
+res<- predict(testfit, testdata)
+which(res == max(res))
+
+et <- as.data.frame(apply(bot3, 2, function(x)length(unique(x))))
+include <- c("referrer", "browser", "devicetype", "speed", "ConstName", "dottedIP", "country.name", "domain.name", "edge.conn.speed", "edge.latitude", "edge.longitude", "time_ms", "primary.lang")
+include<- as.data.frame(include)
+library(data.table)
+setDT(et, keep.rownames = TRUE)[]
+test <- sqldf("select * from et where rn in include")
+
+bot4<- read.csv("bot4.csv")
+bot4$X <- NULL
+bot4$x <- NULL
+
+testfit <- glm(is_blacklist ~ referrer + browser + 
+                 devicetype + speed + ConstName + 
+                 country.name + domain.name + edge.conn.speed + 
+                 primary.lang, data = bot4, family = binomial())
+
+testdata <- cbind.data.frame(bot3$referrer, bot3$browser, bot3$devicetype, 
+                             bot3$speed, bot3$ConstName, bot3$country.name, 
+                             bot3$domain.name, bot3$edge.conn.speed, 
+                             bot3$primary.lang)
+
+names(testdata) <- c("referrer", "browser", "devicetype", 
+                     "speed", "ConstName", "country.name", 
+                     "domain.name", "edge.conn.speed", 
+                     "primary.lang")
+predict1 <- predict(testfit, testdata)
+party<- grep("veri", domaintest, ignore.case = TRUE)
+
+library(httr)
+library(jsonlite)
+sample2 <- GET('https://useragentapi.com/api/v3/json/b3d29f2c/Mozilla%2F5.0+%28Windows+NT+6.0%29+AppleWebKit%2F537.36+%28KHTML,+like+Gecko%29+Chrome%2F44.0.2403.157+Safari%2F537.36')
+result2 <- content(sample2)
+
+sample3 <- GET('http://www.useragentstring.com/?uas=Mozilla%2F5.0+%28Windows+NT+6.1;+Trident%2F7.0;+SLCC2;+.NET+CLR+2.0.50727;+.NET+CLR+3.5.30729;+.NET+CLR+3.0.30729;+Media+Center+PC+6.0;+.NET4.0C;+.NET4.0E;+rv:11.0%29+like+Gecko')
+result3<- content(sample3)
+smallparty<- read.csv("")
+
+sample4 <- fromJSON('https://useragentapi.com/api/v3/json/b3d29f2c/Mozilla%2F5.0+%28Windows+NT+6.0%29+AppleWebKit%2F537.36+%28KHTML,+like+Gecko%29+Chrome%2F44.0.2403.157+Safari%2F537.36')
+
+
+library(reshape2)
+
+ultimateparty <- apply(uaparseparty, 1, fromJSON)
+l <- melt(ultimateparty)
+write.csv(l, "~/Desktop/ultimate.csv")
+
+uasubset <- bot4[grep("boi", bot4$UserAgentName, ignore.case = TRUE), ]
+
+uac<- c("boi", "build", "dual", "know", "mana")
+matches <- unique(grep(paste(uac, collapse = "|"),
+                       bot4$UserAgentName, value = TRUE))
+View(as.data.frame(matches))
+
+uasubset <- bot4[grep(uac, bot4$UserAgentName, ignore.case = TRUE), ]
+buildsubset <- bot4[grep("build", bot4$UserAgentName, ignore.case = TRUE), ]
+dualsubset <- bot4[grep("dual", bot4$UserAgentName, ignore.case = TRUE), ]
+boisubset <- bot4[grep("boi", bot4$UserAgentName, ignore.case = TRUE), ]
+knowsubset <- bot4[grep("know", bot4$UserAgentName, ignore.case = TRUE), ]
+manasubset <- bot4[grep("mana", bot4$UserAgentName, ignore.case = TRUE), ]
+
+totalsubset <-merge(buildsubset, dualsubset, all=TRUE)
+totalsubset2<-merge(knowsubset, manasubset, all=TRUE)
+totalsubset2<-merge(totalsubset, totalsubset2, all=TRUE)
+totalsubset2<-merge(boisubset, totalsubset2, all=TRUE)
+rm(buildsubset)
+
+install.packages('reshape')
+library(reshape)
+
+derp<- cast(ultimate, L1 ~ L3)
+derp$language_code <- NULL
+derp$language_name <- NULL
+
+test311 <- read.csv("~/Desktop/testua311.csv")
+rawresults311 <- apply(test311, 1, fromJSON)
+testresults3112$L2<-NULL
+
+rawresultsua <- melt(rawresults311)
+
+rawresultsua<- cast(rawresultsua, L1 ~ L3)
+rawresultsua$language_code <- NULL
+rawresultsua$language_name <- NULL
+write.csv(rawresultsua, "~/Desktop/resultsua.csv")
+
+boxplot(bot4$timeperpage, ylim= c(0, 500))
+
+ua2000 <- read.csv("ua2000.csv")
+ua2000 <- apply(ua2000, 1, fromJSON)
+ua2000 <- melt(ua2000)
+ua2000 <- cast(ua2000, L1 ~ L3)
+write.csv(ua2000, "~/Desktop/ua20001.csv")
+
+contrasts(bot4$country)
+
+
+
+et5 <- as.data.frame(apply(bot5, 2, function(x)length(unique(x))))
+include5 <- c("BrowserParse", "EngineParse", "PlatformParse", "referrer", "speed", "ConstName", "country.name", "domain.name", "edge.conn.speed","primary.lang")
+include5<- as.data.frame(include5)
+library(data.table)
+setDT(et5, keep.rownames = TRUE)
+
+library(sqldf)
+test5 <- sqldf("select * from et5 where rn in include5")
+bot5[["blacklist"]] <- bot4$is_blacklist
+testfit <- glm(blacklist ~ referrer + BrowserParse + 
+                 PlatformParse + EngineParse + speed + ConstName + 
+                 country.name + domain.name + edge.conn.speed + 
+                 primary.lang, data = bot5, family = binomial())
+
+summary(testfit)
+bot5 <- read.csv("bot5.csv")
+
+testdata <- cbind.data.frame(bot5$referrer, bot5$BrowserParse, bot5$PlatformParse, bot5$EngineParse, 
+                             bot5$speed, bot5$ConstName, bot5$country.name, 
+                             bot5$domain.name, bot5$edge.conn.speed, 
+                             bot5$primary.lang)
+
+
+names(testdata) <- c("referrer", "BrowserParse", "PlatformParse", 
+                     "EngineParse", "speed", "ConstName", "country.name", 
+                     "domain.name", "edge.conn.speed", 
+                     "primary.lang")
+predict1 <- predict(testfit, testdata)
+write.csv(predict1, "~/Desktop/predict1.csv")
+
+############
+
+testfit6 <- glm(blacklist ~ referrer + BrowserParse + 
+                 PlatformParse + EngineParse + speed + ConstName + 
+                 country.name + domain.name + edge.conn.speed + 
+                 primary.lang, data = bot5, family = binomial())
+
+
+predict6 <- predict(testfit6, testdata)
+as.data.frams(predict6)
+write.csv(predict6, "~/Desktop/predict6.csv")
+
+
+install.packages("RGtk2")
+install.packages("rattle")
+q()
+library('rattle')
+rattle()
+
+#removed observations with missing variables
+
+set.seed(crv$seed) 
+crs$nobs <- nrow(crs$dataset) # 4930 observations 
+crs$sample <- crs$train <- sample(nrow(crs$dataset), 0.7*crs$nobs) # 3451 observations
+crs$validate <- sample(setdiff(seq_len(nrow(crs$dataset)), crs$train), 0.15*crs$nobs) # 739 observations
+crs$test <- setdiff(setdiff(seq_len(nrow(crs$dataset)), crs$train), crs$validate) # 740 observations
+
+# The following variable selections have been noted.
+
+crs$input <- c("BrowserParse", "EngineParse", "PlatformParse", "datetimeadded",
+               "timeonsite", "pagesviewed", "timeperpage", "referrer",
+               "speed", "ConstName", "edge.country", "homebiz.type",
+               "primary.lang")
+
+crs$numeric <- c("timeonsite", "pagesviewed", "timeperpage")
+
+crs$categoric <- c("BrowserParse", "EngineParse", "PlatformParse", "datetimeadded",
+                   "referrer", "speed", "ConstName", "edge.country",
+                   "homebiz.type", "primary.lang")
+
+crs$target  <- "blacklist"
+crs$risk    <- NULL
+crs$ident   <- "x"
+crs$ignore  <- NULL
+crs$weights <- NULL
+
+
+NULL                           3443       3714             
+BrowserParse  64       73      3379       3641   0.2108    
+Engine.Parse  10        0      3369      73024   1.0000    
+Device.Parse 114        0      3255     102364   1.0000    
+DeviceType     0     5334      3255      97030             
+timeonsite    14        0      3241     104310   1.0000    
+pagesviewed    3   100848      3238       3462   <2e-16 ***
+  timeperpage   13       11      3225       3451   0.5698    
+referrer     164        0      3061      64014   1.0000    
+speed          7        0      3054     110870   1.0000    
+ConstName      6    67956      3048      42914   <2e-16 ***
+  edge.country  72        0      2976      90542   1.0000    
+homebiz.type   1    20184      2975      70357   <2e-16 ***
+  primary.lang   0     7281      2975      63076             
