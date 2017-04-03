@@ -1,3 +1,4 @@
+#dl "location costs" report from looker
 setwd("~/Documents")
 loccosts <- read.csv("~/documents/loccosts.csv")
 names(loccosts)[1] <- "loc_id"
