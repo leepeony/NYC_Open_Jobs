@@ -14,9 +14,6 @@ loccosts$closed_month[loccosts$closed_month=="-01"] <- NA
 loccosts$opened_month <- as.Date(loccosts$opened_month)
 loccosts$closed_month <- as.Date(loccosts$closed_month)
 
-class("loccost$opened_month")
-class("loccost$closed_month")
-
 #subset where closed month is null or >= "2017-XX-01", and opened_month is <= "2017-XX-28/30/31"
 
 "costs201702" <- subset(loccosts, (is.na(closed_month) | closed_month >= as.Date('2017-02-01')) & 
